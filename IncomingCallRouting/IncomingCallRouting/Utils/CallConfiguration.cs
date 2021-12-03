@@ -55,7 +55,7 @@ namespace IncomingCallRouting
         /// <summary>
         /// The publicly available url of the audio file which would be played as a prompt.
         /// </summary>
-        public string AudioFileUrl => $"{AppBaseUrl}/audio/{AudioFileName}";
+        public string AudioFileUrl => $"{AudioFileName}";
 
         public Participants targetParticipants { get; private set; }
     }

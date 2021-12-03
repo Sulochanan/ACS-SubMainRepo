@@ -12,9 +12,13 @@ namespace IncomingCallRouting
 
         public Participants(string targetparticipants)
         {
-            if(availaibleParticipants == null)
+            if (availaibleParticipants == null)
             {
                 availaibleParticipants = new Queue<string>();
+            }
+            else
+            {
+                availaibleParticipants.Clear();
             }
 
             var participants = targetparticipants.Split(',');

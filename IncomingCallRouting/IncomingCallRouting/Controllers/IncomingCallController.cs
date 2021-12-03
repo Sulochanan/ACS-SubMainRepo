@@ -58,7 +58,7 @@ namespace IncomingCallRouting.Controllers
                     {
                         string incomingCallContext = eventData.Split("\"incomingCallContext\":\"")[1].Split("\"}")[0];
                         Logger.LogMessage(Logger.MessageType.INFORMATION, $"-----incomingCallContext----- {incomingCallContext}");
-                        incomingCalls.Add(Task.Run(async () => await new OutboundCallReminder(callingServerClient, callConfiguration).Report(incomingCallContext)));
+                        incomingCalls.Add(Task.Run(async () => await new IncomingCallHandler(callingServerClient, callConfiguration).Report(incomingCallContext)));
                     }
                 }
                 return Ok();

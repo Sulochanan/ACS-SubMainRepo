@@ -12,7 +12,7 @@ namespace IncomingCallRouting
     using System.Threading;
     using System.Threading.Tasks;
 
-    public class OutboundCallReminder
+    public class IncomingCallHandler
     {
         private CallingServerClient callingServerClient;
         private CallConfiguration callConfiguration;
@@ -28,7 +28,7 @@ namespace IncomingCallRouting
         private TaskCompletionSource<bool> transferToParticipantCompleteTask;
         private readonly int maxRetryAttemptCount = 3;
 
-        public OutboundCallReminder(CallingServerClient callingServerClient, CallConfiguration callConfiguration)
+        public IncomingCallHandler(CallingServerClient callingServerClient, CallConfiguration callConfiguration)
         {
             this.callConfiguration = callConfiguration;
             this.callingServerClient = callingServerClient;
@@ -50,14 +50,15 @@ namespace IncomingCallRouting
                     new Uri(callConfiguration.AppCallbackUrl));
 
                 callConnection = response.Value;
-                Logger.LogMessage(Logger.MessageType.INFORMATION, $"callConnection.CallConnectionId ----> {callConnection.CallConnectionId}");
-
                 RegisterToCallStateChangeEvent(callConnection.CallConnectionId);
 
                 //Wait for the call to get connected
-                await callEstablishedTask.Task.ConfigureAwait(false);
+                //await callEstablishedTask.Task.ConfigureAwait(false);
 
                 RegisterToDtmfResultEvent(callConnection.CallConnectionId);
+
+                //For now, use sleep wait for the call to get established
+                Thread.Sleep(60 * 1000);
 
                 await PlayAudioAsync().ConfigureAwait(false);
                 var playAudioCompleted = await playAudioCompletedTask.Task.ConfigureAwait(false);
@@ -79,7 +80,6 @@ namespace IncomingCallRouting
                             await RetryTransferToParticipantAsync(async () => await TransferToParticipant(participant));
                         }
                     }
-
                     await HangupAsync().ConfigureAwait(false);
                 }
 
@@ -123,7 +123,6 @@ namespace IncomingCallRouting
                     Loop = true,
                 };
 
-                Logger.LogMessage(Logger.MessageType.INFORMATION, "Performing PlayAudio operation");
                 var response = await callConnection.PlayAudioAsync(new Uri(callConfiguration.AudioFileUrl),
                     playAudioOptions).ConfigureAwait(false);
 
@@ -135,13 +134,14 @@ namespace IncomingCallRouting
                     // listen to play audio events
                     RegisterToPlayAudioResultEvent(playAudioOptions.OperationContext);
 
-                    var completedTask = await Task.WhenAny(playAudioCompletedTask.Task, Task.Delay(30 * 1000)).ConfigureAwait(false);
+                    var completedTask = await Task.WhenAny(playAudioCompletedTask.Task, Task.Delay(10 * 1000)).ConfigureAwait(false);
 
                     if (completedTask != playAudioCompletedTask.Task)
                     {
-                        Logger.LogMessage(Logger.MessageType.INFORMATION, "No response from user in 30 sec, initiating hangup");
-                        playAudioCompletedTask.TrySetResult(false);
-                        toneReceivedCompleteTask.TrySetResult(false);
+                        Logger.LogMessage(Logger.MessageType.INFORMATION, "Cancel All Media Operations");
+                        playAudioCompletedTask.TrySetResult(true);
+                        toneReceivedCompleteTask.TrySetResult(true);
+                        await CancelAllMediaOperations().ConfigureAwait(false);
                     }
                 }
             }
@@ -233,6 +233,7 @@ namespace IncomingCallRouting
                     if (playAudioResultEvent.Status == CallingOperationStatus.Completed)
                     {
                         playAudioCompletedTask.TrySetResult(true);
+                        toneReceivedCompleteTask.TrySetResult(true);
                         EventDispatcher.Instance.Unsubscribe(CallingServerEventType.PlayAudioResultEvent.ToString(), operationContext);
                     }
                     else if (playAudioResultEvent.Status == CallingOperationStatus.Failed)
@@ -293,13 +294,13 @@ namespace IncomingCallRouting
 
                 if (identifierKind == CommunicationIdentifierKind.UserIdentity)
                 {
-                    var response = await callConnection.TransferToParticipantAsync(new CommunicationUserIdentifier(addedParticipant)).ConfigureAwait(false);
+                    var response = await callConnection.TransferToParticipantAsync(new CommunicationUserIdentifier(addedParticipant), operationContext).ConfigureAwait(false);
                     Logger.LogMessage(Logger.MessageType.INFORMATION, $"TransferParticipantAsync response --> {response}");
                 }
                 else if (identifierKind == CommunicationIdentifierKind.PhoneIdentity)
                 {
                     var response = await callConnection.TransferToParticipantAsync(new PhoneNumberIdentifier(addedParticipant), operationContext).ConfigureAwait(false);
-                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"AddParticipantAsync response --> {response}");
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"TransferParticipantAsync response --> {response}");
                 }
             }
 
