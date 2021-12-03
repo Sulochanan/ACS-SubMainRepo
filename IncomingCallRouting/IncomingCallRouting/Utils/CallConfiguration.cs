@@ -25,7 +25,7 @@ namespace IncomingCallRouting
             {
                 callConfiguration = new CallConfiguration(configuration["ResourceConnectionString"],
                     configuration["AppCallBackUri"],
-                    configuration["audioFileUri"],
+                    configuration["AudioFileUri"],
                     configuration["TargetParticipants"]);
             }
 
