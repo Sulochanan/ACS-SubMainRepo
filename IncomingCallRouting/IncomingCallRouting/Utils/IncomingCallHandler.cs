@@ -19,20 +19,20 @@ namespace IncomingCallRouting
         private CallConnection callConnection;
         private CancellationTokenSource reportCancellationTokenSource;
         private CancellationToken reportCancellationToken;
-        private Participants targetParticipants;
 
         private TaskCompletionSource<bool> callEstablishedTask;
         private TaskCompletionSource<bool> playAudioCompletedTask;
         private TaskCompletionSource<bool> callTerminatedTask;
         private TaskCompletionSource<bool> toneReceivedCompleteTask;
         private TaskCompletionSource<bool> transferToParticipantCompleteTask;
+        private string targetParticipant;
         private readonly int maxRetryAttemptCount = 3;
 
         public IncomingCallHandler(CallingServerClient callingServerClient, CallConfiguration callConfiguration)
         {
             this.callConfiguration = callConfiguration;
             this.callingServerClient = callingServerClient;
-            targetParticipants = callConfiguration.targetParticipants;
+            targetParticipant = callConfiguration.targetParticipant;
         }
 
         public async Task Report(string incomingCallContext)
@@ -42,12 +42,17 @@ namespace IncomingCallRouting
 
             try
             {
+                //wait for 10 sec befor answering the call.
+                Thread.Sleep(10 * 1000);
+
                 // Answer Call
                 var response = await callingServerClient.AnswerCallAsync(
                     incomingCallContext,
                     new List<CallMediaType> { CallMediaType.Audio },
                     new List<CallingEventSubscriptionType> { CallingEventSubscriptionType.ParticipantsUpdated },
                     new Uri(callConfiguration.AppCallbackUrl));
+
+                Logger.LogMessage(Logger.MessageType.INFORMATION, $"AnswerCallAsync response --> {response.GetRawResponse()}");
 
                 callConnection = response.Value;
                 RegisterToCallStateChangeEvent(callConnection.CallConnectionId);
@@ -72,7 +77,7 @@ namespace IncomingCallRouting
                     var toneReceivedComplete = await toneReceivedCompleteTask.Task.ConfigureAwait(false);
                     if (toneReceivedComplete)
                     {
-                        string participant = targetParticipants.getTargetParticipant(callConnection.CallConnectionId);
+                        string participant = targetParticipant;
                         Logger.LogMessage(Logger.MessageType.INFORMATION, $"Tranferring call to participant {participant}");
                         var transferToParticipantCompleted = await TransferToParticipant(participant);
                         if (!transferToParticipantCompleted)
@@ -209,7 +214,6 @@ namespace IncomingCallRouting
                 {
                     EventDispatcher.Instance.Unsubscribe(CallingServerEventType.CallConnectionStateChangedEvent.ToString(), callConnectionId);
                     reportCancellationTokenSource.Cancel();
-                    targetParticipants.UnRegisterParticipant(callStateChanged.CallConnectionId);
                     callTerminatedTask.SetResult(true);
                 }
             });
@@ -294,12 +298,12 @@ namespace IncomingCallRouting
 
                 if (identifierKind == CommunicationIdentifierKind.UserIdentity)
                 {
-                    var response = await callConnection.TransferToParticipantAsync(new CommunicationUserIdentifier(addedParticipant), operationContext).ConfigureAwait(false);
+                    var response = await callConnection.TransferToParticipantAsync(new CommunicationUserIdentifier(addedParticipant), null, null, operationContext).ConfigureAwait(false);
                     Logger.LogMessage(Logger.MessageType.INFORMATION, $"TransferParticipantAsync response --> {response}");
                 }
                 else if (identifierKind == CommunicationIdentifierKind.PhoneIdentity)
                 {
-                    var response = await callConnection.TransferToParticipantAsync(new PhoneNumberIdentifier(addedParticipant), operationContext).ConfigureAwait(false);
+                    var response = await callConnection.TransferToParticipantAsync(new PhoneNumberIdentifier(addedParticipant), null, null, operationContext).ConfigureAwait(false);
                     Logger.LogMessage(Logger.MessageType.INFORMATION, $"TransferParticipantAsync response --> {response}");
                 }
             }
