@@ -19,13 +19,13 @@ namespace IncomingCallRouting
         private CallConnection callConnection;
         private CancellationTokenSource reportCancellationTokenSource;
         private CancellationToken reportCancellationToken;
+        private string targetParticipant;
 
         private TaskCompletionSource<bool> callEstablishedTask;
         private TaskCompletionSource<bool> playAudioCompletedTask;
         private TaskCompletionSource<bool> callTerminatedTask;
         private TaskCompletionSource<bool> toneReceivedCompleteTask;
         private TaskCompletionSource<bool> transferToParticipantCompleteTask;
-        private string targetParticipant;
         private readonly int maxRetryAttemptCount = 3;
 
         public IncomingCallHandler(CallingServerClient callingServerClient, CallConfiguration callConfiguration)
@@ -52,18 +52,15 @@ namespace IncomingCallRouting
                     new List<CallingEventSubscriptionType> { CallingEventSubscriptionType.ParticipantsUpdated },
                     new Uri(callConfiguration.AppCallbackUrl));
 
-                Logger.LogMessage(Logger.MessageType.INFORMATION, $"AnswerCallAsync response --> {response.GetRawResponse()}");
+                Logger.LogMessage(Logger.MessageType.INFORMATION, $"AnswerCallAsync Response -----> {response.GetRawResponse()}");
 
                 callConnection = response.Value;
                 RegisterToCallStateChangeEvent(callConnection.CallConnectionId);
 
                 //Wait for the call to get connected
-                //await callEstablishedTask.Task.ConfigureAwait(false);
+                await callEstablishedTask.Task.ConfigureAwait(false);
 
                 RegisterToDtmfResultEvent(callConnection.CallConnectionId);
-
-                //For now, use sleep wait for the call to get established
-                Thread.Sleep(60 * 1000);
 
                 await PlayAudioAsync().ConfigureAwait(false);
                 var playAudioCompleted = await playAudioCompletedTask.Task.ConfigureAwait(false);
@@ -102,7 +99,7 @@ namespace IncomingCallRouting
             int retryAttemptCount = 1;
             while (retryAttemptCount <= maxRetryAttemptCount)
             {
-                Logger.LogMessage(Logger.MessageType.INFORMATION, $"Retrying add participant attempt {retryAttemptCount} is in progress");
+                Logger.LogMessage(Logger.MessageType.INFORMATION, $"Retrying Transfer participant attempt {retryAttemptCount} is in progress");
                 var transferToParticipantResult = await action();
                 if (transferToParticipantResult)
                 {
@@ -110,7 +107,7 @@ namespace IncomingCallRouting
                 }
                 else
                 {
-                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Retry add participant attempt {retryAttemptCount} has failed");
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Retry transfer participant attempt {retryAttemptCount} has failed");
                     retryAttemptCount++;
                 }
             }
@@ -143,10 +140,9 @@ namespace IncomingCallRouting
 
                     if (completedTask != playAudioCompletedTask.Task)
                     {
-                        Logger.LogMessage(Logger.MessageType.INFORMATION, "Cancel All Media Operations");
                         playAudioCompletedTask.TrySetResult(true);
+                        //After playing audio for 10 sec, make toneReceivedCompleteTask true.
                         toneReceivedCompleteTask.TrySetResult(true);
-                        await CancelAllMediaOperations().ConfigureAwait(false);
                     }
                 }
             }
@@ -237,12 +233,14 @@ namespace IncomingCallRouting
                     if (playAudioResultEvent.Status == CallingOperationStatus.Completed)
                     {
                         playAudioCompletedTask.TrySetResult(true);
-                        toneReceivedCompleteTask.TrySetResult(true);
                         EventDispatcher.Instance.Unsubscribe(CallingServerEventType.PlayAudioResultEvent.ToString(), operationContext);
                     }
                     else if (playAudioResultEvent.Status == CallingOperationStatus.Failed)
                     {
-                        playAudioCompletedTask.TrySetResult(false);
+                        //As play audio and tone dial is not working
+                        //For now passing the events by setting the task true.
+                        playAudioCompletedTask.TrySetResult(true);
+                        toneReceivedCompleteTask.TrySetResult(true);
                     }
                 });
             });
@@ -259,7 +257,7 @@ namespace IncomingCallRouting
                 Task.Run(async () =>
                 {
                     var toneReceivedEvent = (ToneReceivedEvent)callEvent;
-                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Tone received --------- : {toneReceivedEvent.ToneInfo?.Tone}");
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Tone received ---------> : {toneReceivedEvent.ToneInfo?.Tone}");
 
                     if (toneReceivedEvent?.ToneInfo?.Tone == ToneValue.Tone1)
                     {
@@ -272,18 +270,18 @@ namespace IncomingCallRouting
 
                     EventDispatcher.Instance.Unsubscribe(CallingServerEventType.ToneReceivedEvent.ToString(), callConnectionId);
                     // cancel playing audio
-                    await CancelAllMediaOperations().ConfigureAwait(false);
+                    //await CancelAllMediaOperations().ConfigureAwait(false);
                 });
             });
             //Subscribe to event
             EventDispatcher.Instance.Subscribe(CallingServerEventType.ToneReceivedEvent.ToString(), callConnectionId, dtmfReceivedEvent);
         }
 
-        private async Task<bool> TransferToParticipant(string addedParticipant)
+        private async Task<bool> TransferToParticipant(string targetParticipant)
         {
             transferToParticipantCompleteTask = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            var identifierKind = GetIdentifierKind(addedParticipant);
+            var identifierKind = GetIdentifierKind(targetParticipant);
 
             if (identifierKind == CommunicationIdentifierKind.UnknownIdentity)
             {
@@ -298,12 +296,13 @@ namespace IncomingCallRouting
 
                 if (identifierKind == CommunicationIdentifierKind.UserIdentity)
                 {
-                    var response = await callConnection.TransferToParticipantAsync(new CommunicationUserIdentifier(addedParticipant), null, null, operationContext).ConfigureAwait(false);
-                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"TransferParticipantAsync response --> {response}");
+                    var response = await callConnection.TransferToParticipantAsync(new CommunicationUserIdentifier(targetParticipant), null, null, operationContext).ConfigureAwait(false);
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"TransferParticipantAsync response --> {response.GetRawResponse()}, status: {response.Value.Status}  " +
+                        $"OperationContext: {response.Value.OperationContext}, OperationId: {response.Value.OperationId}, ResultDetails: {response.Value.ResultDetails}");
                 }
                 else if (identifierKind == CommunicationIdentifierKind.PhoneIdentity)
                 {
-                    var response = await callConnection.TransferToParticipantAsync(new PhoneNumberIdentifier(addedParticipant), null, null, operationContext).ConfigureAwait(false);
+                    var response = await callConnection.TransferToParticipantAsync(new PhoneNumberIdentifier(targetParticipant), null, null, operationContext).ConfigureAwait(false);
                     Logger.LogMessage(Logger.MessageType.INFORMATION, $"TransferParticipantAsync response --> {response}");
                 }
             }
@@ -334,7 +333,7 @@ namespace IncomingCallRouting
             });
 
             //Subscribe to event
-            EventDispatcher.Instance.Subscribe(CallingServerEventType.AddParticipantResultEvent.ToString(), operationContext, transferToParticipantReceivedEvent);
+            EventDispatcher.Instance.Subscribe(CallingServerEventType.ParticipantsUpdatedEvent.ToString(), operationContext, transferToParticipantReceivedEvent);
         }
 
         private CommunicationIdentifierKind GetIdentifierKind(string participantnumber)

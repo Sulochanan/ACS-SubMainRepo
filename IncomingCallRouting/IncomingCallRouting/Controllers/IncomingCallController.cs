@@ -57,7 +57,6 @@ namespace IncomingCallRouting.Controllers
                     if (eventData != null)
                     {
                         string incomingCallContext = eventData.Split("\"incomingCallContext\":\"")[1].Split("\"}")[0];
-                        Logger.LogMessage(Logger.MessageType.INFORMATION, $"-----incomingCallContext----- {incomingCallContext}");
                         incomingCalls.Add(Task.Run(async () => await new IncomingCallHandler(callingServerClient, callConfiguration).Report(incomingCallContext)));
                     }
                 }
@@ -82,16 +81,11 @@ namespace IncomingCallRouting.Controllers
             {
                 if(EventAuthHandler.Authorize(secret))
                 {
-                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"CallingServerAPICallBacks-------> {request.ToString()}");
-
-                    var httpContent = new BinaryData(request.ToString()).ToStream();
-                    EventGridEvent cloudEvent = EventGridEvent.ParseMany(BinaryData.FromStream(httpContent)).FirstOrDefault();
-
-                    if (cloudEvent != null)
+                    if (request != null)
                     {
-                        EventDispatcher.Instance.ProcessNotification(cloudEvent);
+                        Logger.LogMessage(Logger.MessageType.INFORMATION, $"CallingServerAPICallBacks --> {request.ToString()}");
+                        EventDispatcher.Instance.ProcessNotification(request.ToString());
                     }
-
                     return Ok();
                 }
                 else
