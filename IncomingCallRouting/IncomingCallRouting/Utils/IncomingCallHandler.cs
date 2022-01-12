@@ -139,13 +139,14 @@ namespace IncomingCallRouting
                     // listen to play audio events
                     RegisterToPlayAudioResultEvent(playAudioOptions.OperationContext);
 
-                    var completedTask = await Task.WhenAny(playAudioCompletedTask.Task, Task.Delay(30 * 1000)).ConfigureAwait(false);
+                    var completedTask = await Task.WhenAny(playAudioCompletedTask.Task, Task.Delay(10 * 1000)).ConfigureAwait(false);
 
-                    if (completedTask != playAudioCompletedTask.Task)
-                    {
-                        playAudioCompletedTask.TrySetResult(false);
-                        toneReceivedCompleteTask.TrySetResult(false);
-                    }
+                    //Transfering call to target participant after playing audio for 10 secs.
+                    playAudioCompletedTask.TrySetResult(true);
+                    toneReceivedCompleteTask.TrySetResult(true);
+
+                    // cancel playing audio
+                    await CancelAllMediaOperations().ConfigureAwait(false);
                 }
             }
             catch (TaskCanceledException)
