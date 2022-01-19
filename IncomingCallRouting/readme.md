@@ -10,8 +10,8 @@ products:
 
 # Incoming call routing Sample
 
-This is a sample web app service, shows how the Azure Communication Services Server Calling SDK can be used to build IVR related solutions. This sample receives an incoming call request whenever a call made to a phone number or a communication identifier then API first answers the call and plays an audio message. If the callee presses 1 (tone1), to reschedule an appointment, then the application transfer a call to the target participant and then leaves the call. If the callee presses any other key then the application ends the call. This sample application is also capable of handling multiple concurrent incoming calls.
-The application is an app service application built on .Net Framework 4.7.2.
+This is a sample web app service, shows how the Azure Communication Services Calling server SDK (used to build IVR related solutions). This sample receives an incoming call request whenever a call made to a communication identifier (IVR Participant) then API first answers the call and plays an audio message. If the callee selects an option for transferring the call, then the application transfer a call to the target participant and IVR participant then leaves the call. If the callee selects any other option then the application disconnect the call.
+The application is an app service application built on .Net Framework 4.8.
 
 ## Prerequisites
 
@@ -37,8 +37,9 @@ The application is an app service application built on .Net Framework 4.7.2.
 	- ResourceConnectionString: Azure Communication Service resource's connection string.
 	- AppCallBackUri: URI of the deployed app service
 	- AudioFileUri: public url of wav audio file
-	- TargetParticipant: Target participant to transfer the call.
+	- TargetParticipant: ACS resource ID of target participant to transfer the call.
 	- SecretValue: Query string for callback URL
+	- IVRParticipant: ACS resource ID or "*" for accepting incoming calls from all the ACS user IDs.
 
 3. Run `IncomingCallRouting` project.
 4. Use postman or any debugging tool and open url - https://localhost:5001
@@ -52,11 +53,30 @@ The application is an app service application built on .Net Framework 4.7.2.
 	- ResourceConnectionString: Azure Communication Service resource's connection string.
 	- AppCallBackUri: URI of the deployed app service.
 	- AudioFileUri: public url of wav audio file.
-	- TargetParticipant: Target participant to transfer the call.
+	- TargetParticipant: ACS resource ID of target participant to transfer the call.
 	- SecretValue: Query string for callback URL.
+	- IVRParticipant: ACS resource ID or "*" for accepting incoming calls from all the ACS user IDs.
+	```
+	For e.g. 8:acs:ab12b0ea-85ea-4f83-b0b6-84d90209c7c4_00000009-bce0-da09-54b7-xxxxxxxxxxxx)
+	```
 
 
 4. Detailed instructions on publishing the app to Azure are available at [Publish a Web app](https://docs.microsoft.com/visualstudio/deployment/quickstart-deploy-to-azure?view=vs-2019).
+
+5. After publishing you application register webhook to your ACS resource using armclient.
+```
+armclient put "/subscriptions/<subscription id>/resourceGroups/<rg>/providers/Microsoft.Communication/CommunicationServices/<acs name>/providers/Microsoft.EventGrid/eventSubscriptions/IncomingCallEventSub?api-version=2020-06-01" "{'properties':{'destination':{'properties':{'endpointUrl':'https://<deployed-web-app-url>/OnIncomingCall'},'endpointType':'WebHook'},'filter':{'includedEventTypes': ['Microsoft.Communication.IncomingCall']}}}" -verbose
+```
+
+
+### How to test
+
+1. Refer [web calling sample](https://docs.microsoft.com/en-us/azure/communication-services/samples/web-calling-sample) sample for creating 3 ACS User Identities.
+
+2. Put identity of User2 and user3 in the configuration as `IVRParticipant` and `TargetParticipant` respectively, (identities are in this form `8:acs:<ACS resource id>-<guid>`)
+
+3. Make a call from User1 to User2
+
 
 **Note**: While you may use http://localhost for local testing, the sample when deployed will only work when served over https. The SDK [does not support http](https://docs.microsoft.com/azure/communication-services/concepts/voice-video-calling/calling-sdk-features#user-webrtc-over-https).
 
