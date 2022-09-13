@@ -1,7 +1,7 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-namespace CallingRecognizeDTMF.Ngrok
+namespace Calling.RecognizeDTMF.Ngrok
 {
     using System;
     using System.Diagnostics;
@@ -73,7 +73,6 @@ namespace CallingRecognizeDTMF.Ngrok
 
             startInfo.FileName = $@"{ngrokPath}\ngrok.exe";
             startInfo.Arguments = $"http http://localhost:9007/ -host-header=\"localhost:9007\" {authTokenArgs}";
-            Console.WriteLine(startInfo.FileName);
             this.ngrokProcess.StartInfo = startInfo;
             this.ngrokProcess.Start();
         }

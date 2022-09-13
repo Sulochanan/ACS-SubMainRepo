@@ -1,15 +1,16 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-namespace CallingRecognizeDTMF
+namespace Calling.RecognizeDTMF
 {
     /// <summary>
     /// Configuration assoociated with the call.
     /// </summary>
     public class CallConfiguration
     {
-        public CallConfiguration(string connectionString, string sourceIdentity, string sourcePhoneNumber, 
-            string appBaseUrl, string audioFileName, string salesAudioFileName, string marketingAudioFileName, string customerCareAudioFileName)
+        public CallConfiguration(string connectionString, string sourceIdentity, string sourcePhoneNumber,
+            string appBaseUrl, string audioFileName, string salesAudioFileName, string marketingAudioFileName, 
+            string customerCareAudioFileName, string invalidAudioFileName)
         {
             this.ConnectionString = connectionString;
             this.SourceIdentity = sourceIdentity;
@@ -19,6 +20,7 @@ namespace CallingRecognizeDTMF
             this.SalesAudioFileName = salesAudioFileName;
             this.MarketingAudioFileName = marketingAudioFileName;
             this.CustomerCareAudioFileName = customerCareAudioFileName;
+            this.InvalidAudioFileName = invalidAudioFileName;
         }
 
         /// <summary>
@@ -62,9 +64,14 @@ namespace CallingRecognizeDTMF
         public string CustomerCareAudioFileName;
 
         /// <summary>
+        /// The audio file name of the play prompt.
+        /// </summary>
+        public string InvalidAudioFileName;
+
+        /// <summary>
         /// The callback url of the application where notification would be received.
         /// </summary>
-        public string AppCallbackUrl => $"{AppBaseUrl}/api/outboundcall/callback?{EventAuthHandler.GetSecretQuerystring}";
+        public string AppCallbackUrl => $"{AppBaseUrl}/api/recognizedtmf/callback?{EventAuthHandler.GetSecretQuerystring}";
 
         /// <summary>
         /// The publicly available url of the audio file which would be played as a prompt.

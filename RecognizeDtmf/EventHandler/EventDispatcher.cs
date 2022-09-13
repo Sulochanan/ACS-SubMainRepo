@@ -1,11 +1,10 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-namespace CallingRecognizeDTMF
+namespace Calling.RecognizeDTMF
 {
     using Azure.Communication.CallingServer;
     using Azure.Messaging;
-    using Newtonsoft.Json;
     using System;
     using System.Collections.Concurrent;
     using System.Threading.Tasks;
@@ -85,11 +84,6 @@ namespace CallingRecognizeDTMF
                 var operationContext = ((PlayAudioResultEvent)callEventBase).OperationContext;
                 return BuildEventKey(CallingServerEventType.PlayAudioResultEvent.ToString(), operationContext);
             }
-            else if (callEventBase is AddParticipantResultEvent)
-            {
-                var operationContext = ((AddParticipantResultEvent)callEventBase).OperationContext;
-                return BuildEventKey(CallingServerEventType.AddParticipantResultEvent.ToString(), operationContext);
-            }
 
             return null;
         }
@@ -114,17 +108,13 @@ namespace CallingRecognizeDTMF
                 {
                     return CallConnectionStateChangedEvent.Deserialize(cloudEvent.Data.ToString());
                 }
-                else if (cloudEvent.Type.Equals(CallingServerEventType.ToneReceivedEvent.ToString()))
+                else if (cloudEvent.Type.Equals("Microsoft.Communication.ToneReceived"))
                 {
                     return ToneReceivedEvent.Deserialize(cloudEvent.Data.ToString());
                 }
                 else if (cloudEvent.Type.Equals(CallingServerEventType.PlayAudioResultEvent.ToString()))
                 {
                     return PlayAudioResultEvent.Deserialize(cloudEvent.Data.ToString());
-                }
-                else if (cloudEvent.Type.Equals(CallingServerEventType.AddParticipantResultEvent.ToString()))
-                {
-                    return AddParticipantResultEvent.Deserialize(cloudEvent.Data.ToString());
                 }
             }
 

@@ -1,13 +1,13 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-namespace CallingRecognizeDTMF
+namespace Calling.RecognizeDTMF
 {
     using System.Net;
     using System.Threading.Tasks;
     using System.Web.Http;
 
-    public class OutboundCallController : ApiController
+    public class RecognizeDtmfController : ApiController
     {
         [HttpPost]
         [ActionName("callback")]

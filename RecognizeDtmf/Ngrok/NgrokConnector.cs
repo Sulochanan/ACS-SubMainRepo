@@ -1,7 +1,7 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-namespace CallingRecognizeDTMF.Ngrok
+namespace Calling.RecognizeDTMF.Ngrok
 {
     using System;
     using System.Collections.Generic;

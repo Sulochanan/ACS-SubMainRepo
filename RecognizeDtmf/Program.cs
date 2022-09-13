@@ -1,10 +1,10 @@
 ﻿using System;
 
-namespace CallingRecognizeDTMF
+namespace Calling.RecognizeDTMF
 {
     using Azure.Communication;
     using Azure.Communication.Identity;
-    using CallingRecognizeDTMF.Ngrok;
+    using Calling.RecognizeDTMF.Ngrok;
     using Microsoft.CognitiveServices.Speech;
     using Microsoft.CognitiveServices.Speech.Audio;
     using Microsoft.Owin.Hosting;
@@ -18,11 +18,13 @@ namespace CallingRecognizeDTMF
         static NgrokService ngrokService;
         const string url = "http://localhost:9007";
 
-        enum AudioName{
+        enum AudioName
+        {
             GeneralAudio,
             SalesAudio,
             MarketingAudio,
-            CustomerCareAudio
+            CustomerCareAudio,
+            InvalidAudio
         }
 
         static async Task Main(string[] args)
@@ -127,12 +129,13 @@ namespace CallingRecognizeDTMF
             var salesAudioFileName = await GenerateCustomAudioMessage(AudioName.SalesAudio).ConfigureAwait(false);
             var marketingAudioFileName = await GenerateCustomAudioMessage(AudioName.MarketingAudio).ConfigureAwait(false);
             var customerCareAudioFileName = await GenerateCustomAudioMessage(AudioName.CustomerCareAudio).ConfigureAwait(false);
+            var invalidAudioFileName = await GenerateCustomAudioMessage(AudioName.InvalidAudio).ConfigureAwait(false);
 
-            return new CallConfiguration(connectionString, sourceIdentity.Id, sourcePhoneNumber, appBaseUrl, 
-                audioFileName, salesAudioFileName, marketingAudioFileName, customerCareAudioFileName);
+            return new CallConfiguration(connectionString, sourceIdentity.Id, sourcePhoneNumber, appBaseUrl,
+                audioFileName, salesAudioFileName, marketingAudioFileName, customerCareAudioFileName, invalidAudioFileName);
         }
 
-        private static async Task<string> GenerateCustomAudioMessage( AudioName audioName)
+        private static async Task<string> GenerateCustomAudioMessage(AudioName audioName)
         {
             var key = ConfigurationManager.AppSettings["CognitiveServiceKey"];
             var region = ConfigurationManager.AppSettings["CognitiveServiceRegion"];
@@ -152,9 +155,9 @@ namespace CallingRecognizeDTMF
                         await synthesizer.SpeakTextAsync(customMessage);
                         return "custom-message.wav";
                     }
-                    else if(audioName == AudioName.SalesAudio)
+                    else if (audioName == AudioName.SalesAudio)
                     {
-                        var customMessage = ConfigurationManager.AppSettings["CustomMessage1"];
+                        var customMessage = ConfigurationManager.AppSettings["SalesCustomMessage"];
                         var audioConfig = AudioConfig.FromWavFileOutput($"../../../audio/sales-message.wav");
                         var synthesizer = new SpeechSynthesizer(config, audioConfig);
                         await synthesizer.SpeakTextAsync(customMessage);
@@ -162,7 +165,7 @@ namespace CallingRecognizeDTMF
                     }
                     else if (audioName == AudioName.MarketingAudio)
                     {
-                        var customMessage = ConfigurationManager.AppSettings["CustomMessage2"];
+                        var customMessage = ConfigurationManager.AppSettings["MarketingCustomMessage"];
                         var audioConfig = AudioConfig.FromWavFileOutput($"../../../audio/marketing-message.wav");
                         var synthesizer = new SpeechSynthesizer(config, audioConfig);
                         await synthesizer.SpeakTextAsync(customMessage);
@@ -170,11 +173,42 @@ namespace CallingRecognizeDTMF
                     }
                     else if (audioName == AudioName.CustomerCareAudio)
                     {
-                        var customMessage  = ConfigurationManager.AppSettings["CustomMessage3"];
+                        var customMessage = ConfigurationManager.AppSettings["CustomerCustomMessage"];
                         var audioConfig = AudioConfig.FromWavFileOutput($"../../../audio/customercare-message.wav");
                         var synthesizer = new SpeechSynthesizer(config, audioConfig);
                         await synthesizer.SpeakTextAsync(customMessage);
                         return "customercare-message.wav";
+                    }
+                    else if (audioName == AudioName.InvalidAudio)
+                    {
+                        var customMessage = ConfigurationManager.AppSettings["InvalidCustomMessage"];
+                        var audioConfig = AudioConfig.FromWavFileOutput($"../../../audio/invalid-message.wav");
+                        var synthesizer = new SpeechSynthesizer(config, audioConfig);
+                        await synthesizer.SpeakTextAsync(customMessage);
+                        return "invalid-message.wav";
+                    }
+                }
+                else
+                {
+                    if (audioName == AudioName.GeneralAudio)
+                    {
+                        return "sample-message.wav";
+                    }
+                    else if (audioName == AudioName.SalesAudio)
+                    {
+                        return "sales.wav";
+                    }
+                    else if (audioName == AudioName.MarketingAudio)
+                    {
+                        return "marketing.wav";
+                    }
+                    else if (audioName == AudioName.CustomerCareAudio)
+                    {
+                        return "customercare.wav";
+                    }
+                    else if (audioName == AudioName.InvalidAudio)
+                    {
+                        return "invalid.wav";
                     }
                 }
 

@@ -1,7 +1,7 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-namespace CallingRecognizeDTMF
+namespace Calling.RecognizeDTMF
 {
     using Azure.Communication;
     using Azure.Communication.CallingServer;
@@ -24,7 +24,6 @@ namespace CallingRecognizeDTMF
         private TaskCompletionSource<bool> playAudioCompletedTask;
         private TaskCompletionSource<bool> callTerminatedTask;
         private TaskCompletionSource<bool> toneReceivedCompleteTask;
-        private TaskCompletionSource<bool> addParticipantCompleteTask;
         private readonly int maxRetryAttemptCount = Convert.ToInt32(ConfigurationManager.AppSettings["MaxRetryCount"]);
         private ToneValue toneInputValue = "";
 
@@ -278,7 +277,7 @@ namespace CallingRecognizeDTMF
                     var toneReceivedEvent = (ToneReceivedEvent)callEvent;
                     Logger.LogMessage(Logger.MessageType.INFORMATION, $"Tone received --------- : {toneReceivedEvent.ToneInfo?.Tone}");
 
-                    if (toneReceivedEvent?.ToneInfo?.Tone == ToneValue.Tone1 || 
+                    if (toneReceivedEvent?.ToneInfo?.Tone == ToneValue.Tone1 ||
                     toneReceivedEvent?.ToneInfo?.Tone == ToneValue.Tone2 || toneReceivedEvent?.ToneInfo?.Tone == ToneValue.Tone3)
                     {
                         this.toneInputValue = toneReceivedEvent.ToneInfo.Tone;
@@ -308,13 +307,13 @@ namespace CallingRecognizeDTMF
 
             try
             {
-                var audioFileName = "";
+                var audioFileName = callConfiguration.InvalidAudioFileName;
 
-                if(toneInputValue == ToneValue.Tone0)
+                if (toneInputValue == ToneValue.Tone1)
                 {
                     audioFileName = callConfiguration.SalesAudioFileName;
                 }
-                else if(toneInputValue == ToneValue.Tone2)
+                else if (toneInputValue == ToneValue.Tone2)
                 {
                     audioFileName = callConfiguration.MarketingAudioFileName;
                 }
@@ -326,9 +325,9 @@ namespace CallingRecognizeDTMF
                 // Preparing data for request
                 var playAudioRequest = new PlayAudioOptions()
                 {
-                    AudioFileUri = new Uri(callConfiguration.AudioFileUrl),
+                    AudioFileUri = new Uri(callConfiguration.AudioFileUrl + audioFileName),
                     OperationContext = Guid.NewGuid().ToString(),
-                    Loop = true,
+                    Loop = false,
                 };
 
                 Logger.LogMessage(Logger.MessageType.INFORMATION, "Performing PlayAudio operation after input");
@@ -341,15 +340,6 @@ namespace CallingRecognizeDTMF
                     Logger.LogMessage(Logger.MessageType.INFORMATION, $"Play Audio state: {response.Value.Status}");
                     // listen to play audio events
                     RegisterToPlayAudioResultEvent(playAudioRequest.OperationContext);
-
-                    var completedTask = await Task.WhenAny(playAudioCompletedTask.Task, Task.Delay(30 * 1000)).ConfigureAwait(false);
-
-                    if (completedTask != playAudioCompletedTask.Task)
-                    {
-                        Logger.LogMessage(Logger.MessageType.INFORMATION, "No response from user in 30 sec, initiating hangup");
-                        playAudioCompletedTask.TrySetResult(false);
-                        toneReceivedCompleteTask.TrySetResult(false);
-                    }
                 }
             }
             catch (TaskCanceledException)
@@ -362,12 +352,5 @@ namespace CallingRecognizeDTMF
             }
         }
 
-        private CommunicationIdentifierKind GetIdentifierKind(string participantnumber)
-        {
-            //checks the identity type returns as string
-            return Regex.Match(participantnumber, Constants.userIdentityRegex, RegexOptions.IgnoreCase).Success ? CommunicationIdentifierKind.UserIdentity :
-                   Regex.Match(participantnumber, Constants.phoneIdentityRegex, RegexOptions.IgnoreCase).Success ? CommunicationIdentifierKind.PhoneIdentity :
-                   CommunicationIdentifierKind.UnknownIdentity;
-        }
     }
 }

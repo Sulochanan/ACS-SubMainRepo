@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CallingRecognizeDTMF
+namespace Calling.RecognizeDTMF
 {
     //Caution: Logging should be removed/disabled if you want to use this sample in production to avoid exposing sensitive information
     public static class Logger
