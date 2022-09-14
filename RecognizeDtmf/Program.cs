@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Calling.RecognizeDTMF
+﻿namespace Calling.RecognizeDTMF
 {
     using Azure.Communication;
     using Azure.Communication.Identity;

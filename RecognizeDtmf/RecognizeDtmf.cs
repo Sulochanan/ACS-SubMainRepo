@@ -8,7 +8,6 @@ namespace Calling.RecognizeDTMF
     using System;
     using System.Collections.Generic;
     using System.Configuration;
-    using System.Text.RegularExpressions;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -69,25 +68,6 @@ namespace Calling.RecognizeDTMF
             catch (Exception ex)
             {
                 Logger.LogMessage(Logger.MessageType.ERROR, $"Call ended unexpectedly, reason: {ex.Message}");
-            }
-        }
-
-        private async Task RetryAddParticipantAsync(Func<Task<bool>> action)
-        {
-            int retryAttemptCount = 1;
-            while (retryAttemptCount <= maxRetryAttemptCount)
-            {
-                Logger.LogMessage(Logger.MessageType.INFORMATION, $"Retrying add participant attempt {retryAttemptCount} is in progress");
-                var addParticipantResult = await action();
-                if (addParticipantResult)
-                {
-                    return;
-                }
-                else
-                {
-                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Retry add participant attempt {retryAttemptCount} has failed");
-                    retryAttemptCount++;
-                }
             }
         }
 
@@ -277,8 +257,7 @@ namespace Calling.RecognizeDTMF
                     var toneReceivedEvent = (ToneReceivedEvent)callEvent;
                     Logger.LogMessage(Logger.MessageType.INFORMATION, $"Tone received --------- : {toneReceivedEvent.ToneInfo?.Tone}");
 
-                    if (toneReceivedEvent?.ToneInfo?.Tone == ToneValue.Tone1 ||
-                    toneReceivedEvent?.ToneInfo?.Tone == ToneValue.Tone2 || toneReceivedEvent?.ToneInfo?.Tone == ToneValue.Tone3)
+                    if (toneReceivedEvent?.ToneInfo?.Tone != null)
                     {
                         this.toneInputValue = toneReceivedEvent.ToneInfo.Tone;
                         toneReceivedCompleteTask.TrySetResult(true);
