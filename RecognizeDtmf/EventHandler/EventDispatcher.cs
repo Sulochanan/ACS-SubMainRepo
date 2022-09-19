@@ -4,7 +4,6 @@
 namespace Calling.RecognizeDTMF
 {
     using Azure.Communication.CallingServer;
-    using Azure.Messaging;
     using System;
     using System.Collections.Concurrent;
     using System.Threading.Tasks;
@@ -47,13 +46,14 @@ namespace Calling.RecognizeDTMF
 
         public void ProcessNotification(string request)
         {
-            var callEvent = this.ExtractEvent(request);
+            CallAutomationEventBase callEvent = CallAutomationEventParser.Parse(BinaryData.FromString(request));
 
             if (callEvent != null)
             {
                 lock (SubscriptionLock)
                 {
-                    if (NotificationCallback.TryGetValue(GetEventKey(callEvent), out NotificationCallback notificationCallback))
+                    var callLegId = callEvent.CallConnectionId;
+                    if (NotificationCallback.TryGetValue(BuildEventKey(callEvent.GetType().Name, callLegId), out NotificationCallback notificationCallback))
                     {
                         if (notificationCallback != null)
                         {
@@ -67,59 +67,11 @@ namespace Calling.RecognizeDTMF
             }
         }
 
-        public string GetEventKey(CallingServerEventBase callEventBase)
-        {
-            if (callEventBase is CallConnectionStateChangedEvent)
-            {
-                var callLegId = ((CallConnectionStateChangedEvent)callEventBase).CallConnectionId;
-                return BuildEventKey(CallingServerEventType.CallConnectionStateChangedEvent.ToString(), callLegId);;
-            }
-            else if (callEventBase is ToneReceivedEvent)
-            {
-                var callLegId = ((ToneReceivedEvent)callEventBase).CallConnectionId;
-                return BuildEventKey(CallingServerEventType.ToneReceivedEvent.ToString(), callLegId);
-            }
-            else if (callEventBase is PlayAudioResultEvent)
-            {
-                var operationContext = ((PlayAudioResultEvent)callEventBase).OperationContext;
-                return BuildEventKey(CallingServerEventType.PlayAudioResultEvent.ToString(), operationContext);
-            }
-
-            return null;
-        }
-
         public string BuildEventKey(string eventType, string eventKey)
         {
             return $"{eventType}-{eventKey}";
         }
-
-        /// <summary>
-        /// Extracting event from the json.
-        /// </summary>
-        /// <param name="content"></param>
-        /// <returns></returns>
-        public CallingServerEventBase ExtractEvent(string content)
-        {
-            CloudEvent cloudEvent = CloudEvent.Parse(BinaryData.FromString(content));
-
-            if (cloudEvent != null && cloudEvent.Data != null)
-            {
-                if (cloudEvent.Type.Equals(CallingServerEventType.CallConnectionStateChangedEvent.ToString()))
-                {
-                    return CallConnectionStateChangedEvent.Deserialize(cloudEvent.Data.ToString());
-                }
-                else if (cloudEvent.Type.Equals("Microsoft.Communication.ToneReceived"))
-                {
-                    return ToneReceivedEvent.Deserialize(cloudEvent.Data.ToString());
-                }
-                else if (cloudEvent.Type.Equals(CallingServerEventType.PlayAudioResultEvent.ToString()))
-                {
-                    return PlayAudioResultEvent.Deserialize(cloudEvent.Data.ToString());
-                }
-            }
-
-            return null;
-        }
     }
+
 }
 
