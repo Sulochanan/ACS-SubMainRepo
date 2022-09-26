@@ -63,7 +63,7 @@
         {
             try
             {
-                var ngrokPath = ConfigurationManager.AppSettings["NgrokExePath"];
+                var ngrokPath = GetConfigSetting("NgrokExePath");
 
                 if (string.IsNullOrEmpty(ngrokPath))
                 {
@@ -96,7 +96,7 @@
         {
             var callConfiguration = await InitiateConfiguration(appBaseUrl).ConfigureAwait(false);
             RecognizeDtmf outboundCallReminder = new RecognizeDtmf(callConfiguration);
-            var outboundCallPairs = ConfigurationManager.AppSettings["DestinationIdentities"];
+            var outboundCallPairs = GetConfigSetting("DestinationIdentities");
             if (outboundCallPairs != null && outboundCallPairs.Length > 0)
             {
                 var identities = outboundCallPairs.Split(';');
@@ -119,8 +119,8 @@
         /// <returns>The <c CallConfiguration object.</returns>
         private static async Task<CallConfiguration> InitiateConfiguration(string appBaseUrl)
         {
-            var connectionString = ConfigurationManager.AppSettings["Connectionstring"];
-            var sourcePhoneNumber = ConfigurationManager.AppSettings["SourcePhone"];
+            var connectionString = GetConfigSetting("Connectionstring");
+            var sourcePhoneNumber = GetConfigSetting("SourcePhone");
 
             var sourceIdentity = await CreateUser(connectionString).ConfigureAwait(false);
             var audioFileName = await GenerateCustomAudioMessage(AudioName.GeneralAudio).ConfigureAwait(false);
@@ -241,6 +241,23 @@
         {
             var client = new CommunicationIdentityClient(connectionString);
             await client.DeleteUserAsync(new CommunicationUserIdentifier(source)).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// get config key from env variable/app.config
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        private static string GetConfigSetting(string key)
+        {
+            // try get from environment variable first
+            string value = Environment.GetEnvironmentVariable(key);
+
+            // try get from app.config value
+            if (string.IsNullOrEmpty(value))
+                value = ConfigurationManager.AppSettings[key];
+
+            return value;
         }
     }
 }

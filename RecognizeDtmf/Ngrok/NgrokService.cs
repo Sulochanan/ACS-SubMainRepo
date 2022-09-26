@@ -64,7 +64,7 @@ namespace Calling.RecognizeDTMF.Ngrok
             var startInfo = new ProcessStartInfo();
 
             startInfo.WindowStyle = ProcessWindowStyle.Normal;
-            
+
             var authTokenArgs = string.Empty;
             if (!string.IsNullOrWhiteSpace(authToken))
             {
@@ -72,7 +72,7 @@ namespace Calling.RecognizeDTMF.Ngrok
             }
 
             startInfo.FileName = $@"{ngrokPath}\ngrok.exe";
-            startInfo.Arguments = $"http http://localhost:9007/ -host-header=\"localhost:9007\" {authTokenArgs}";
+            startInfo.Arguments = $"http http://localhost:9007/ --host-header=\"localhost:9007\" {authTokenArgs}";
             this.ngrokProcess.StartInfo = startInfo;
             this.ngrokProcess.Start();
         }
@@ -87,7 +87,7 @@ namespace Calling.RecognizeDTMF.Ngrok
             do
             {
                 //Wait for fetching the ngrok url as ngrok process might not be started yet.
-                await Task.Delay(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
                 var tunnels = await this.Connector.GetAllTunnelsAsync().ConfigureAwait(false);
 
