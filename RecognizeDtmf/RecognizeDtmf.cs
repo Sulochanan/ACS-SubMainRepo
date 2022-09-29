@@ -23,7 +23,6 @@ namespace Calling.RecognizeDTMF
         private TaskCompletionSource<bool> playAudioCompletedTask;
         private TaskCompletionSource<bool> callTerminatedTask;
         private TaskCompletionSource<bool> toneReceivedCompleteTask;
-        private readonly int maxRetryAttemptCount = Convert.ToInt32(ConfigurationManager.AppSettings["MaxRetryCount"]);
         private DtmfTone toneInputValue = DtmfTone.Zero;
 
         public RecognizeDtmf(CallConfiguration callConfiguration)
@@ -42,7 +41,7 @@ namespace Calling.RecognizeDTMF
                 callConnection = await CreateCallAsync(targetPhoneNumber).ConfigureAwait(false);
                 RegisterToDtmfResultEvent(callConnection.CallConnectionId);
 
-                await PlayAudioAsync().ConfigureAwait(false);
+                await PlayAudioAsync(targetPhoneNumber).ConfigureAwait(false);
                 var playAudioCompleted = await playAudioCompletedTask.Task.ConfigureAwait(false);
 
                 if (!playAudioCompleted)
@@ -106,7 +105,7 @@ namespace Calling.RecognizeDTMF
             }
         }
 
-        private async Task PlayAudioAsync()
+        private async Task PlayAudioAsync(string targetPhoneNumber)
         {
             if (reportCancellationToken.IsCancellationRequested)
             {
@@ -126,7 +125,7 @@ namespace Calling.RecognizeDTMF
                 PlaySource audioFileUri = new FileSource(new Uri(callConfiguration.AudioFileUrl + callConfiguration.AudioFileName));
 
                 Logger.LogMessage(Logger.MessageType.INFORMATION, "Performing PlayAudio operation");
-                var response = await callConnection.GetCallMedia().PlayToAllAsync(audioFileUri, playAudioRequest, 
+                var response = await callConnection.GetCallMedia().PlayToAllAsync(audioFileUri, playAudioRequest,
                     reportCancellationToken).ConfigureAwait(false);
 
                 Logger.LogMessage(Logger.MessageType.INFORMATION, $"PlayAudioAsync response --> " +
@@ -137,8 +136,20 @@ namespace Calling.RecognizeDTMF
                     Logger.LogMessage(Logger.MessageType.INFORMATION, $"Play Audio state: {response.Status}");
 
                     // listen to play audio events
-                    RegisterToPlayAudioResultEvent(playAudioRequest.OperationContext);
+                    RegisterToPlayAudioResultEvent(callConnection.CallConnectionId);
 
+                    //Start recognizing Dtmf Tone
+                    var recognizeOptions = new CallMediaRecognizeDtmfOptions(new PhoneNumberIdentifier(targetPhoneNumber), 1);
+                    recognizeOptions.InterToneTimeout = TimeSpan.FromSeconds(60);
+                    recognizeOptions.InterruptPrompt = false;
+                    recognizeOptions.InterruptCallMediaOperation = false;
+
+                    var resp = await callConnection.GetCallMedia().StartRecognizingAsync(recognizeOptions, reportCancellationToken);
+
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"StartRecognizingAsync response --> " +
+                    $"{resp}, Id: {resp.ClientRequestId}, Status: {resp.Status}");
+
+                    //Wait for 30 secs for input
                     var completedTask = await Task.WhenAny(playAudioCompletedTask.Task, Task.Delay(30 * 1000)).ConfigureAwait(false);
 
                     if (completedTask != playAudioCompletedTask.Task)
@@ -171,7 +182,6 @@ namespace Calling.RecognizeDTMF
             var hangupResponse = await callConnection.HangUpAsync(true, reportCancellationToken).ConfigureAwait(false);
 
             Logger.LogMessage(Logger.MessageType.INFORMATION, $"HangupAsync response --> {hangupResponse}");
-
         }
 
         private async Task CancelAllMediaOperations()
@@ -186,7 +196,7 @@ namespace Calling.RecognizeDTMF
 
             var response = await callConnection.GetCallMedia().CancelAllMediaOperationsAsync(reportCancellationToken).ConfigureAwait(false);
 
-            Logger.LogMessage(Logger.MessageType.INFORMATION, $"PlayAudioAsync response --> {response}, " +
+            Logger.LogMessage(Logger.MessageType.INFORMATION, $"CancelAllMediaOperationsAsync response --> {response}, " +
                 $"Id: {response.ClientRequestId}, Status: {response.Status}");
         }
 
@@ -215,7 +225,7 @@ namespace Calling.RecognizeDTMF
 
                 EventDispatcher.Instance.Unsubscribe("CallDisconnected", callConnectionId);
                 reportCancellationTokenSource.Cancel();
-                //callTerminatedTask.SetResult(true);
+                callTerminatedTask.SetResult(true);
             });
 
             //Subscribe to the call connected event
@@ -225,7 +235,7 @@ namespace Calling.RecognizeDTMF
             var eventIdDisconnected = EventDispatcher.Instance.Subscribe("CallDisconnected", callConnectionId, callDisconnectedNotificaiton);
         }
 
-        private void RegisterToPlayAudioResultEvent(string operationContext)
+        private void RegisterToPlayAudioResultEvent(string callConnectionId)
         {
             playAudioCompletedTask = new TaskCompletionSource<bool>(TaskContinuationOptions.RunContinuationsAsynchronously);
             reportCancellationToken.Register(() => playAudioCompletedTask.TrySetCanceled());
@@ -235,10 +245,9 @@ namespace Calling.RecognizeDTMF
                 Task.Run(() =>
                 {
                     var playAudioResultEvent = (PlayCompleted)callEvent;
-                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Play audio status: {playAudioResultEvent.PublicEventType}");
-
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Play audio status: Completed");
                     playAudioCompletedTask.TrySetResult(true);
-                    EventDispatcher.Instance.Unsubscribe("PlayCompleted", operationContext);
+                    EventDispatcher.Instance.Unsubscribe("PlayCompleted", callConnectionId);
                 });
             });
 
@@ -246,19 +255,17 @@ namespace Calling.RecognizeDTMF
             {
                 Task.Run(() =>
                 {
-                    var playAudioResultEvent = (PlayCompleted)callEvent;
-                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Play audio status: {playAudioResultEvent.PublicEventType}");
+                    var playAudioResultEvent = (PlayFailed)callEvent;
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Play audio status: Failed");
 
                     playAudioCompletedTask.TrySetResult(false);
                 });
             });
 
-
             //Subscribe to event
-            EventDispatcher.Instance.Subscribe("PlayCompleted", operationContext, playCompletedNotification);
-            EventDispatcher.Instance.Subscribe("PlayFailed", operationContext, playFailedNotification);
-
-            }
+            EventDispatcher.Instance.Subscribe("PlayCompleted", callConnectionId, playCompletedNotification);
+            EventDispatcher.Instance.Subscribe("PlayFailed", callConnectionId, playFailedNotification);
+        }
 
         private void RegisterToDtmfResultEvent(string callConnectionId)
         {
@@ -268,10 +275,10 @@ namespace Calling.RecognizeDTMF
                 Task.Run(async () =>
                 {
                     var toneReceivedEvent = (RecognizeCompleted)callEvent;
-                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Tone received --------- : {toneReceivedEvent.CollectTonesResult.Tones}");
 
                     if (toneReceivedEvent.CollectTonesResult.Tones.Count != 0)
                     {
+                        Logger.LogMessage(Logger.MessageType.INFORMATION, $"Tone received --------- : {toneReceivedEvent.CollectTonesResult.Tones[0]}");
                         this.toneInputValue = toneReceivedEvent.CollectTonesResult.Tones[0];
                         toneReceivedCompleteTask.TrySetResult(true);
                     }
@@ -280,9 +287,9 @@ namespace Calling.RecognizeDTMF
                         toneReceivedCompleteTask.TrySetResult(false);
                     }
 
-                    EventDispatcher.Instance.Unsubscribe("RecognizeCompleted", callConnectionId);
                     // cancel playing audio
                     await CancelAllMediaOperations().ConfigureAwait(false);
+                    EventDispatcher.Instance.Unsubscribe("RecognizeCompleted", callConnectionId);
                 });
             });
 
@@ -334,7 +341,7 @@ namespace Calling.RecognizeDTMF
                 var playAudioRequest = new PlayOptions()
                 {
                     OperationContext = Guid.NewGuid().ToString(),
-                    Loop = true,
+                    Loop = false,
                 };
 
                 PlaySource audioFileUri = new FileSource(new Uri(callConfiguration.AudioFileUrl + audioFileName));
@@ -349,7 +356,7 @@ namespace Calling.RecognizeDTMF
                 {
                     Logger.LogMessage(Logger.MessageType.INFORMATION, $"Play Audio state: {response.Status}");
                     // listen to play audio events
-                    RegisterToPlayAudioResultEvent(playAudioRequest.OperationContext);
+                    RegisterToPlayAudioResultEvent(callConnection.CallConnectionId);
                 }
             }
             catch (TaskCanceledException)
