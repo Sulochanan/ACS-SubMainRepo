@@ -14,6 +14,10 @@ This sample application shows how the Azure Communication Services Server Callin
 If the callee presses any other key then an audio of invalid tone got played and the application ends the call. This sample application is also capable of making multiple concurrent outbound calls.
 The application is a console based application built on .Net Framework 4.7.2.
 
+# Design
+
+![design](./Media/recognizeDtmfDesign.png)
+
 ## Prerequisites
 
 - Create an Azure account with an active subscription. For details, see [Create an account for free](https://azure.microsoft.com/free/)
