@@ -3,7 +3,7 @@
 
 namespace Calling.RecognizeDTMF
 {
-    using Azure.Communication.CallingServer;
+    using Azure.Communication.CallAutomation;
     using System;
 
     public class NotificationCallback

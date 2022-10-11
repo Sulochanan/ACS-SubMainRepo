@@ -3,7 +3,7 @@
 
 namespace Calling.RecognizeDTMF
 {
-    using Azure.Communication.CallingServer;
+    using Azure.Communication.CallAutomation;
     using System;
     using System.Collections.Concurrent;
     using System.Threading.Tasks;
