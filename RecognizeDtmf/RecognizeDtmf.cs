@@ -168,21 +168,6 @@ namespace Calling.RecognizeDTMF
             Logger.LogMessage(Logger.MessageType.INFORMATION, $"HangupAsync response --> {hangupResponse}");
         }
 
-        private async Task CancelAllMediaOperations()
-        {
-            if (reportCancellationToken.IsCancellationRequested)
-            {
-                Logger.LogMessage(Logger.MessageType.INFORMATION, "Cancellation request, CancelMediaProcessing will not be performed");
-                return;
-            }
-
-            Logger.LogMessage(Logger.MessageType.INFORMATION, "Performing cancel media processing operation to stop playing audio");
-
-            var response = await callConnection.GetCallMedia().CancelAllMediaOperationsAsync(reportCancellationToken).ConfigureAwait(false);
-
-            Logger.LogMessage(Logger.MessageType.INFORMATION, $"CancelAllMediaOperationsAsync response --> {response}, " +
-                $"Id: {response.ClientRequestId}, Status: {response.Status}");
-        }
         private void RegisterToCallStateChangeEvent(string callConnectionId)
         {
             callEstablishedTask = new TaskCompletionSource<bool>(TaskContinuationOptions.RunContinuationsAsynchronously);
@@ -277,8 +262,6 @@ namespace Calling.RecognizeDTMF
                     }
                     EventDispatcher.Instance.Unsubscribe("RecognizeCompleted", callConnectionId);
                     playAudioCompletedTask.TrySetResult(true);
-                    // cancel playing audio
-                    CancelAllMediaOperations();
                 });
             });
 
