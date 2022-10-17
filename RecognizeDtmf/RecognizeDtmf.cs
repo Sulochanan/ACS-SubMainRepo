@@ -40,7 +40,7 @@ namespace Calling.RecognizeDTMF
                 callConnection = await CreateCallAsync(targetPhoneNumber).ConfigureAwait(false);
                 RegisterToDtmfResultEvent(callConnection.CallConnectionId);
 
-                await PlayAudioAsync(targetPhoneNumber).ConfigureAwait(false);
+                await StartRecognizingDtmf(targetPhoneNumber).ConfigureAwait(false);
                 var playAudioCompleted = await playAudioCompletedTask.Task.ConfigureAwait(false);
 
                 if (!playAudioCompleted)
@@ -104,7 +104,7 @@ namespace Calling.RecognizeDTMF
             }
         }
 
-        private async Task PlayAudioAsync(string targetPhoneNumber)
+        private async Task StartRecognizingDtmf(string targetPhoneNumber)
         {
             if (reportCancellationToken.IsCancellationRequested)
             {
@@ -127,6 +127,7 @@ namespace Calling.RecognizeDTMF
                 recognizeOptions.InterruptPrompt = true;
                 recognizeOptions.InterruptCallMediaOperation = true;
                 recognizeOptions.Prompt = audioFileUri;
+                recognizeOptions.StopTones = new List<DtmfTone> { DtmfTone.Pound };
 
                 var resp = await callConnection.GetCallMedia().StartRecognizingAsync(recognizeOptions, reportCancellationToken);
 
@@ -145,13 +146,12 @@ namespace Calling.RecognizeDTMF
             }
             catch (TaskCanceledException)
             {
-                Logger.LogMessage(Logger.MessageType.ERROR, " Play audio operation for Custom message got cancelled");
+                Logger.LogMessage(Logger.MessageType.ERROR, " Start recognizing with Play audio prompt for Custom message got cancelled");
             }
             catch (Exception ex)
             {
-                Logger.LogMessage(Logger.MessageType.ERROR, $"Failure occured while playing Custom message audio on the call. Exception: {ex.Message}");
+                Logger.LogMessage(Logger.MessageType.ERROR, $"Failure occured while start recognizing with Play audio prompt. Exception: {ex.Message}");
             }
-
         }
 
         private async Task HangupAsync()
@@ -164,7 +164,6 @@ namespace Calling.RecognizeDTMF
 
             Logger.LogMessage(Logger.MessageType.INFORMATION, "Performing Hangup operation");
             var hangupResponse = await callConnection.HangUpAsync(true).ConfigureAwait(false);
-
             Logger.LogMessage(Logger.MessageType.INFORMATION, $"HangupAsync response --> {hangupResponse}");
         }
 
