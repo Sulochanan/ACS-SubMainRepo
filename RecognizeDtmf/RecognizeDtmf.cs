@@ -23,6 +23,7 @@ namespace Calling.RecognizeDTMF
         private TaskCompletionSource<bool> callTerminatedTask;
         private TaskCompletionSource<bool> toneReceivedCompleteTask;
         private DtmfTone toneInputValue = DtmfTone.Zero;
+        private int toneCount = 0;
 
         public RecognizeDtmf(CallConfiguration callConfiguration)
         {
@@ -50,7 +51,7 @@ namespace Calling.RecognizeDTMF
                 else
                 {
                     var toneReceivedComplete = await toneReceivedCompleteTask.Task.ConfigureAwait(false);
-                    if (toneReceivedComplete)
+                    if (toneReceivedComplete && toneCount != 0)
                     {
                         Logger.LogMessage(Logger.MessageType.INFORMATION, $"Play Audio for input {toneInputValue.ToString()}");
                         await PlayAudioAsInput().ConfigureAwait(false);
@@ -252,14 +253,11 @@ namespace Calling.RecognizeDTMF
                     if (toneReceivedEvent.CollectTonesResult.Tones.Count != 0)
                     {
                         Logger.LogMessage(Logger.MessageType.INFORMATION, $"Tone received --------- : {toneReceivedEvent.CollectTonesResult.Tones[0]}");
-                        this.toneInputValue = toneReceivedEvent.CollectTonesResult.Tones[0];
-                        toneReceivedCompleteTask.TrySetResult(true);
-                    }
-                    else
-                    {
-                        toneReceivedCompleteTask.TrySetResult(false);
+                        toneCount = toneReceivedEvent.CollectTonesResult.Tones.Count;
+                        toneInputValue = toneReceivedEvent.CollectTonesResult.Tones[0];
                     }
                     EventDispatcher.Instance.Unsubscribe("RecognizeCompleted", callConnectionId);
+                    toneReceivedCompleteTask.TrySetResult(true);
                     playAudioCompletedTask.TrySetResult(true);
                 });
             });
