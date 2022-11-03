@@ -72,7 +72,7 @@ namespace Communication.Server.Calling.Sample.OutboundCallReminder.Ngrok
             }
 
             startInfo.FileName = $@"{ngrokPath}\ngrok.exe";
-            startInfo.Arguments = $"http http://localhost:9007/ -host-header=\"localhost:9007\" {authTokenArgs}";
+            startInfo.Arguments = $"http http://localhost:9007/ --host-header=\"localhost:9007\" {authTokenArgs}";
             this.ngrokProcess.StartInfo = startInfo;
             this.ngrokProcess.Start();
         }
