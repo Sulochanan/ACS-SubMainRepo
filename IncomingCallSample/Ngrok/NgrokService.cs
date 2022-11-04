@@ -107,7 +107,7 @@ namespace WebSocketListener.Ngrok
             }
 
             startInfo.FileName = $@"{ngrokPath}\ngrok.exe";
-            startInfo.Arguments = $"http http://localhost:8080/ --host-header=\"localhost:8080\" {authTokenArgs}";
+            startInfo.Arguments = $"http http://localhost:59634/ --host-header=\"localhost:59634\" {authTokenArgs}";
             ngrokProcess.StartInfo = startInfo;
             ngrokProcess.Start();
         }
