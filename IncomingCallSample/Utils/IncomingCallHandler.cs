@@ -58,7 +58,7 @@ namespace IncomingCallSample
 
                 RegisterToDtmfResultEvent(callConnection.CallConnectionId);
 
-                await PlayAudioAsync().ConfigureAwait(false);
+                await StartRecognizingDtmf().ConfigureAwait(false);
                 var playAudioCompleted = await playAudioCompletedTask.Task.ConfigureAwait(false);
 
                 if (!playAudioCompleted)
@@ -95,10 +95,10 @@ namespace IncomingCallSample
                 EventDispatcher.Instance.Unsubscribe("CallConnected", callConnectionId);
 
                 //Start recording
-                //StartRecordingOptions startRecordingOptions = new StartRecordingOptions(new ServerCallLocator(callConnectionId));
-                //RecordingStateResult recordingResult = callAutomationClient.GetCallRecording().StartRecording(startRecordingOptions);
-
-                //Logger.LogMessage(Logger.MessageType.INFORMATION, $"Recording got started, result is : {recordingResult}");
+                var serverCallId = callAutomationClient.GetCallConnection(callConnectionId).GetCallConnectionProperties().Value.ServerCallId;
+                StartRecordingOptions startRecordingOptions = new StartRecordingOptions(new ServerCallLocator(serverCallId));
+                RecordingStateResult recordingResult = callAutomationClient.GetCallRecording().StartRecording(startRecordingOptions);
+                Logger.LogMessage(Logger.MessageType.INFORMATION, $"Recording got started, result is : {recordingResult}");
 
                 callEstablishedTask.TrySetResult(true);
             });
@@ -119,55 +119,7 @@ namespace IncomingCallSample
             var eventIdDisconnected = EventDispatcher.Instance.Subscribe("CallDisconnected", callConnectionId, callDisconnectedNotificaiton);
         }
 
-        public async Task PlayAudioAsync()
-        {
-            if (reportCancellationToken.IsCancellationRequested)
-            {
-                Logger.LogMessage(Logger.MessageType.INFORMATION, "Cancellation request, PlayAudio will not be performed");
-                return;
-            }
-
-            try
-            {
-                // Preparing data for request
-                var playAudioRequest = new PlayOptions()
-                {
-                    OperationContext = Guid.NewGuid().ToString(),
-                    Loop = true,
-                };
-                PlaySource AudioFileUri = new FileSource(new Uri(callConfiguration.AudioFileUrl));
-
-                Logger.LogMessage(Logger.MessageType.INFORMATION, "Performing PlayAudio operation");
-                var response = await callConnection.GetCallMedia().PlayToAllAsync(AudioFileUri, playAudioRequest, reportCancellationToken).ConfigureAwait(false);
-
-                Logger.LogMessage(Logger.MessageType.INFORMATION, $"PlayAudioAsync response --> {response}, Id: {response.ClientRequestId}, Status: {response.Status}, OperationContext: {response.Content}, ResultInfo: {response.ContentStream}");
-
-                if (response.Status == 202)
-                {
-                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Play Audio state: {response}");
-                    // listen to play audio events
-                    RegisterToPlayAudioResultEvent(playAudioRequest.OperationContext);
-                    var completedTask = await Task.WhenAny(playAudioCompletedTask.Task, Task.Delay(30 * 1000)).ConfigureAwait(false);
-
-                    if (completedTask != playAudioCompletedTask.Task)
-                    {
-                        Logger.LogMessage(Logger.MessageType.INFORMATION, "No response from user in 30 sec, initiating hangup");
-                        playAudioCompletedTask.TrySetResult(false);
-                        toneReceivedCompleteTask.TrySetResult(false);
-                    }
-                }
-            }
-            catch (TaskCanceledException)
-            {
-                Logger.LogMessage(Logger.MessageType.ERROR, "Play audio operation cancelled");
-            }
-            catch (Exception ex)
-            {
-                Logger.LogMessage(Logger.MessageType.ERROR, $"Failure occured while playing audio on the call. Exception: {ex.Message}");
-            }
-        }
-
-        private async Task StartRecognizingDtmf(string targetPhoneNumber)
+        private async Task StartRecognizingDtmf()
         {
             if (reportCancellationToken.IsCancellationRequested)
             {
@@ -178,13 +130,13 @@ namespace IncomingCallSample
             try
             {
                 string audioFilePath = callConfiguration.AudioFileUrl;
-                // string audioFilePath = callConfiguration.AudioFileUrl + CallConfiguration.AudioFileName;
                 PlaySource audioFileUri = new FileSource(new Uri(audioFilePath));
 
                 // listen to play audio events
                 RegisterToPlayAudioResultEvent(callConnection.CallConnectionId);
 
                 //Start recognizing Dtmf Tone
+                string targetPhoneNumber = callConfiguration.TargetParticipant;
                 var recognizeOptions = new CallMediaRecognizeDtmfOptions(new PhoneNumberIdentifier(targetPhoneNumber), 1);
                 recognizeOptions.InterToneTimeout = TimeSpan.FromSeconds(5);
                 recognizeOptions.InitialSilenceTimeout = TimeSpan.FromSeconds(30);

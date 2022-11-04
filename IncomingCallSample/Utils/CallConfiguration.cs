@@ -36,11 +36,17 @@ namespace IncomingCallSample
         /// </summary>
         public string AudioFileUrl => $"{AudioFileName}";
 
-        public CallConfiguration(string connectionString, string appBaseUrl, string audioFileName, string queryString)
+        /// <summary>
+        /// The audio file name of the play prompt.
+        /// </summary>
+        public string TargetParticipant { get; private set; }
+
+        public CallConfiguration(string connectionString, string appBaseUrl, string audioFileName, string targetParticipant, string queryString)
         {
             ConnectionString = connectionString;
             AppBaseUrl = appBaseUrl;
             AudioFileName = audioFileName;
+            TargetParticipant = targetParticipant;
             AppCallbackUrl = $"{AppBaseUrl}/CallAutomationApiCallBack?{queryString}";
         }
 
@@ -51,6 +57,7 @@ namespace IncomingCallSample
                 callConfiguration = new CallConfiguration(configuration["ResourceConnectionString"],
                     configuration["AppCallBackUri"],
                     configuration["AudioFileUri"],
+                    configuration["TargetParticipant"],
                     queryString);
             }
 
