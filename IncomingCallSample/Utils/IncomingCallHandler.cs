@@ -11,13 +11,25 @@ namespace IncomingCallSample
     /// </summary>
 
     using Azure.Communication.CallAutomation;
+    using Microsoft.VisualBasic;
     using System;
     using System.Collections.Generic;
+    using System.Text.RegularExpressions;
     using System.Threading;
     using System.Threading.Tasks;
 
     public class IncomingCallHandler
     {
+        public enum CommunicationIdentifierKind
+        {
+            UserIdentity,
+            PhoneIdentity,
+            UnknownIdentity
+        }
+
+        public const string userIdentityRegex = @"8:acs:[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}_[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}";
+        public const string phoneIdentityRegex = @"^\+\d{10,14}$";
+
         private CallAutomationClient callAutomationClient;
         private CallConfiguration callConfiguration;
         private CallConnection callConnection;
@@ -98,7 +110,8 @@ namespace IncomingCallSample
                 var serverCallId = callAutomationClient.GetCallConnection(callConnectionId).GetCallConnectionProperties().Value.ServerCallId;
                 StartRecordingOptions startRecordingOptions = new StartRecordingOptions(new ServerCallLocator(serverCallId));
                 RecordingStateResult recordingResult = callAutomationClient.GetCallRecording().StartRecording(startRecordingOptions);
-                Logger.LogMessage(Logger.MessageType.INFORMATION, $"Recording got started, result is : {recordingResult}");
+                Logger.LogMessage(Logger.MessageType.INFORMATION, $"Recording got started, recording ID : {recordingResult.RecordingId} " +
+                    $", Recording State: {recordingResult.RecordingState}");
 
                 callEstablishedTask.TrySetResult(true);
             });
@@ -135,9 +148,28 @@ namespace IncomingCallSample
                 // listen to play audio events
                 RegisterToPlayAudioResultEvent(callConnection.CallConnectionId);
 
-                //Start recognizing Dtmf Tone
                 string targetPhoneNumber = callConfiguration.TargetParticipant;
-                var recognizeOptions = new CallMediaRecognizeDtmfOptions(new PhoneNumberIdentifier(targetPhoneNumber), 1);
+
+                var identifierKind = GetIdentifierKind(targetPhoneNumber);
+                CommunicationIdentifier targetParticipant = null;
+
+                if (identifierKind == CommunicationIdentifierKind.UnknownIdentity)
+                {
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, "Unknown identity provided. Enter valid phone number or communication user id");
+                    playAudioCompletedTask.TrySetResult(false);
+                    toneReceivedCompleteTask.TrySetResult(false);
+                }
+                else if (identifierKind == CommunicationIdentifierKind.UserIdentity)
+                {
+                    targetParticipant = new CommunicationUserIdentifier(targetPhoneNumber);
+                }
+                else if (identifierKind == CommunicationIdentifierKind.PhoneIdentity)
+                {
+                    targetParticipant = new PhoneNumberIdentifier(targetPhoneNumber);
+                }
+
+                //Start recognizing Dtmf Tone
+                var recognizeOptions = new CallMediaRecognizeDtmfOptions(targetParticipant, 1);
                 recognizeOptions.InterToneTimeout = TimeSpan.FromSeconds(5);
                 recognizeOptions.InitialSilenceTimeout = TimeSpan.FromSeconds(30);
                 recognizeOptions.InterruptPrompt = true;
@@ -236,7 +268,7 @@ namespace IncomingCallSample
                     var toneReceivedEvent = (RecognizeCompleted)callEvent;
 
                     //if (toneReceivedEvent.CollectTonesResult.Tones.Count != 0)
-                    if (toneReceivedEvent.CollectTonesResult.Tones.Count != 0 && toneReceivedEvent.CollectTonesResult.Tones[0] != DtmfTone.Two)
+                    if (toneReceivedEvent.CollectTonesResult.Tones.Count != 0)
                     {
                         Logger.LogMessage(Logger.MessageType.INFORMATION, $"Tone received --------- : {toneReceivedEvent.CollectTonesResult.Tones[0]}");
                         toneReceivedCompleteTask.TrySetResult(true);
@@ -264,6 +296,15 @@ namespace IncomingCallSample
             //Subscribe to event
             EventDispatcher.Instance.Subscribe("RecognizeCompleted", callConnectionId, dtmfReceivedEvent);
             EventDispatcher.Instance.Subscribe("Recognizefailed", callConnectionId, dtmfFailedEvent);
+        }
+
+
+        private CommunicationIdentifierKind GetIdentifierKind(string participantnumber)
+        {
+            //checks the identity type returns as string
+            return Regex.Match(participantnumber, userIdentityRegex, RegexOptions.IgnoreCase).Success ? CommunicationIdentifierKind.UserIdentity :
+                   Regex.Match(participantnumber, phoneIdentityRegex, RegexOptions.IgnoreCase).Success ? CommunicationIdentifierKind.PhoneIdentity :
+                   CommunicationIdentifierKind.UnknownIdentity;
         }
 
     }

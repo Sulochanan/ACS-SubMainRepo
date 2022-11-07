@@ -59,7 +59,10 @@ namespace IncomingCallSample.Controllers
                 {
                     //Fetch incoming call context from request
                     var eventData = request.ToString();
-                    if (eventData != null)
+                    string fromParticipnat = eventData.Split("\"from\":{\"kind\":\"communicationUser\",\"rawId\":\"")[1].Split("\",\"")[0];
+
+                    if (eventData != null && (callConfiguration.AcceptCallsFrom == "*" 
+                        || callConfiguration.AcceptCallsFrom.IndexOf(fromParticipnat) != -1))
                     {
                         string incomingCallContext = eventData.Split("\"incomingCallContext\":\"")[1].Split("\"}")[0];
                         Logger.LogMessage(Logger.MessageType.INFORMATION, incomingCallContext);
@@ -106,5 +109,54 @@ namespace IncomingCallSample.Controllers
             }
         }
 
+        /// <summary>
+        /// Web hook to receive the recording file update status event
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [HttpPost]
+        [Route("getRecordingFile")]
+        public ActionResult GetRecordingFile([FromBody] object request)
+        {
+            try
+            {
+                var httpContent = new BinaryData(request.ToString()).ToStream();
+                EventGridEvent cloudEvent = EventGridEvent.ParseMany(BinaryData.FromStream(httpContent)).FirstOrDefault();
+
+                if (cloudEvent.EventType == SystemEventNames.EventGridSubscriptionValidation)
+                {
+                    var eventData = cloudEvent.Data.ToObjectFromJson<SubscriptionValidationEventData>();
+
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Microsoft.EventGrid.SubscriptionValidationEvent response  -- > {cloudEvent.Data}");
+
+                    var responseData = new SubscriptionValidationResponse
+                    {
+                        ValidationResponse = eventData.ValidationCode
+                    };
+
+                    if (responseData.ValidationResponse != null)
+                    {
+                        return Ok(responseData);
+                    }
+                }
+
+                if (cloudEvent.EventType == SystemEventNames.AcsRecordingFileStatusUpdated)
+                {
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Event type is -- > {cloudEvent.EventType}");
+
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, "Microsoft.Communication.RecordingFileStatusUpdated response  -- >" + cloudEvent.Data);
+
+                    var eventData = cloudEvent.Data.ToObjectFromJson<AcsRecordingFileStatusUpdatedEventData>();
+
+                    Logger.LogMessage(Logger.MessageType.INFORMATION, $"Start processing metadata -- > {eventData}");
+                }
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return Json(new { Exception = ex });
+            }
+        }
     }
 }

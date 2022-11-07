@@ -41,13 +41,20 @@ namespace IncomingCallSample
         /// </summary>
         public string TargetParticipant { get; private set; }
 
-        public CallConfiguration(string connectionString, string appBaseUrl, string audioFileName, string targetParticipant, string queryString)
+        /// <summary>
+        /// Accept calls only from particular identifier
+        /// </summary>
+        public string AcceptCallsFrom { get; private set; }
+
+        public CallConfiguration(string connectionString, string appBaseUrl, string audioFileName, 
+            string targetParticipant, string queryString, string acceptCallsFrom)
         {
             ConnectionString = connectionString;
             AppBaseUrl = appBaseUrl;
             AudioFileName = audioFileName;
             TargetParticipant = targetParticipant;
             AppCallbackUrl = $"{AppBaseUrl}/CallAutomationApiCallBack?{queryString}";
+            AcceptCallsFrom = acceptCallsFrom;
         }
 
         public static CallConfiguration GetCallConfiguration(IConfiguration configuration, string queryString)
@@ -58,7 +65,8 @@ namespace IncomingCallSample
                     configuration["AppCallBackUri"],
                     configuration["AudioFileUri"],
                     configuration["TargetParticipant"],
-                    queryString);
+                    queryString,
+                    configuration["AcceptCallsFrom"]);
             }
 
             return callConfiguration;
