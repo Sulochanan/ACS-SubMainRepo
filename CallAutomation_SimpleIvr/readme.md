@@ -54,14 +54,20 @@ The application is an app service application built on .NET6.0.
 	- CallbackUriBase: URI of the deployed app service or Visual studio dev tunnel url.
 	- ParticipantToAdd: Target phone number to add as participant.
 
-### Create Webhook for Microsoft.Communication.IncomingCall event and Microsoft.Communication.RecordingFileStatusUpdated event
-1. Configure webhook from ACS events tab for incoming call event.
- 	- Manually configuring the webhook using this command. use above published "'https://<IncomingCallMediaStreaming-URL>/OnIncomingCall" URL as webhook URL.
+Subscribe to IncomingCall event
+IncomingCall is an Azure Event Grid event for notifying incoming calls to your Communication Services resource. To learn more about it, see this guide.
 
-	```
-	armclient put "/subscriptions/<Subscriptin-ID>/resourceGroups/<resource group name>/providers/Microsoft.Communication/CommunicationServices/<CommunicationService Name>/providers/Microsoft.EventGrid/eventSubscriptions/<WebHookName>?api-version=2020-06-01" "{'properties':{'destination':{'properties':{'endpointUrl':'<webhookurl>'},'endpointType':'WebHook'},'filter':{'includedEventTypes': ['Microsoft.Communication.IncomingCall']}}}" -verbose
+Navigate to your resource on Azure portal and select Events from the left side menu.
 
-	```
+Select + Event Subscription to create a new subscription.
+
+Filter for Incoming Call event.
+
+Choose endpoint type as web hook and provide the public url generated for your application by ngrok. Make sure to provide the exact api route that you programmed to receive the event previously. In this case, it would be <ngrok_url>/api/incomingCall. Screenshot of portal page to create a new event subscription.
+
+Select create to start the creation of subscription and validation of your endpoint as mentioned previously. The subscription is ready when the provisioning status is marked as succeeded.
+
+This subscription currently has no filters and hence all incoming calls will be sent to your application. To filter for specific phone number or a communication user, use the Filters tab.
 
 
 
