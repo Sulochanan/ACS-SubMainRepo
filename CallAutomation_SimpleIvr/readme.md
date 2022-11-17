@@ -55,9 +55,7 @@ The application is an app service application built on .NET6.0.
 	- ParticipantToAdd: Target phone number to add as participant.
 	
 ### Create Webhook for Microsoft.Communication.IncomingCall event and Microsoft.Communication.RecordingFileStatusUpdated event
-## Subscribe to IncomingCall event
-
-IncomingCall is an Azure Event Grid event for notifying incoming calls to your Communication Services resource. To learn more about it, see [this guide](../../concepts/call-automation/incoming-call-notification.md). 
+IncomingCall is an Azure Event Grid event for notifying incoming calls to your Communication Services resource. To learn more about it, see [this guide](https://learn.microsoft.com/en-us/azure/communication-services/concepts/call-automation/incoming-call-notification). 
 1. Navigate to your resource on Azure portal and select `Events` from the left side menu.
 1. Select `+ Event Subscription` to create a new subscription. 
 1. Filter for Incoming Call event. 
@@ -66,9 +64,9 @@ IncomingCall is an Azure Event Grid event for notifying incoming calls to your C
 ![Screenshot of portal page to create a new event subscription.](./media/MicrosoftTeams-image.png)
 
 
-1. Follow the same steps for RecordingFileStatusUpdated event
+1. Select create to start the creation of subscription and validation of your endpoint as mentioned previously. The subscription is ready when the provisioning status is marked as succeeded.
 
-1. Select create to start the creation of subscription and validation of your endpoint as mentioned previously. The subscription is ready when the provisioning status is marked as succeeded. 
+1. Follow the Above steps to create Webhook for RecordingFileStatusUpdated event.
 
 
 This subscription currently has no filters and hence all incoming calls will be sent to your application. To filter for specific phone number or a communication user, use the Filters tab.
